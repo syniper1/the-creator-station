@@ -1,27 +1,41 @@
-# ---------- Build client ----------
+# =========================
+# 1️⃣ Build React frontend
+# =========================
 FROM node:20-slim AS client-build
+
+WORKDIR /app/client
+
+# Copy client package files
+COPY client/package*.json ./
+RUN npm install
+
+# Copy client source
+COPY client/ ./
+
+# Build React app
+RUN npm run build
+
+
+# =========================
+# 2️⃣ Build backend server
+# =========================
+FROM node:20-slim
+
 WORKDIR /app
-COPY client/package*.json ./client/
-RUN cd client && npm install
-COPY client ./client
-RUN cd client && npm run build
 
-# ---------- Server runtime ----------
-FROM node:20-slim AS runtime
-WORKDIR /app
-
-# ffmpeg for mp4 rendering
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates       && rm -rf /var/lib/apt/lists/*
-
+# Copy backend package files
 COPY package*.json ./
 RUN npm install --omit=dev
 
+# Copy backend source
 COPY server.js ./
-COPY src ./src
-COPY --from=client-build /app/client/dist ./public
 
-ENV NODE_ENV=production
+# Copy built frontend from previous stage
+COPY --from=client-build /app/client/dist ./client/dist
+
+# Cloud Run uses PORT
 ENV PORT=8080
 EXPOSE 8080
 
+# Start server
 CMD ["node", "server.js"]
